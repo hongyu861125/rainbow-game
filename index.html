@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>🌈 3D光學探究：彩虹與色散光學台</title>
+<style>
+    :root {
+        --primary: #3A86FF;
+        --secondary: #00B4D8;
+        --accent: #FF006E;
+        --dark: #2B2D42;
+        --light: #F8F9FA;
+        --glass-bg: rgba(255, 255, 255, 0.85);
+        --glass-border: rgba(255, 255, 255, 0.5);
+    }
+    body {
+        font-family: 'Segoe UI', '微軟正黑體', sans-serif;
+        background: linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%);
+        margin: 0; padding: 15px; display: flex; flex-direction: column; align-items: center;
+        touch-action: none; min-height: 100vh; box-sizing: border-box;
+    }
+    #app {
+        background: var(--glass-bg); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
+        width: 100%; max-width: 1050px; border-radius: 20px;
+        box-shadow: 0 15px 35px rgba(0,0,0,0.1), inset 0 0 0 1px var(--glass-border);
+        padding: 20px; box-sizing: border-box;
+    }
+    h1 { text-align: center; color: var(--primary); margin: 0 0 15px 0; font-size: 26px; text-shadow: 1px 1px 2px rgba(0,0,0,0.1); }
+
+    .tabs { display: flex; gap: 15px; margin-bottom: 15px; }
+    .tab-btn {
+        flex: 1; padding: 12px; background: rgba(255,255,255,0.6); border: 1px solid var(--glass-border); border-radius: 12px;
+        font-size: 16px; font-weight: bold; cursor: pointer; color: var(--dark); transition: all 0.3s;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+    }
+    .tab-btn.active { background: var(--primary); color: white; box-shadow: 0 8px 15px rgba(58, 134, 255, 0.4); transform: translateY(-2px); border-color: transparent; }
+
+    #canvas-container {
+        position: relative; width: 100%; height: 420px; border-radius: 16px;
+        background: #000; overflow: hidden; cursor: pointer;
+        box-shadow: 0 10px 20px rgba(0,0,0,0.2) inset, 0 5px 15px rgba(0,0,0,0.1);
+        border: 4px solid rgba(255,255,255,0.4);
+    }
+    canvas { display: block; width: 100%; height: 100%; }
+
+    .overlay-panel {
+        position: absolute; background: rgba(255,255,255,0.9); padding: 15px; border-radius: 12px;
+        pointer-events: none; font-size: 14px; box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+        backdrop-filter: blur(5px); border: 1px solid rgba(255,255,255,0.6);
+    }
+    #task-panel { top: 15px; left: 15px; border-left: 6px solid var(--accent); }
+    #task-panel h3 { margin: 0 0 10px 0; color: var(--accent); font-size: 16px; }
+    .task { font-weight: 600; margin-bottom: 6px; color: #555; transition: 0.3s; }
+    .task.done { color: #06D6A0; text-decoration: line-through; }
+    
+    .controls-wrapper { background: rgba(255,255,255,0.6); padding: 20px; border-radius: 16px; margin-top: 15px; border: 1px solid var(--glass-border); }
+    .control-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; }
+    .control-group { display: flex; flex-direction: column; gap: 8px; }
+    .control-group label { font-weight: bold; font-size: 14px; color: var(--dark); }
+    
+    input[type=range] { width: 100%; cursor: pointer; accent-color: var(--primary); }
+    .btn-row { display: flex; flex-wrap: wrap; gap: 6px; }
+    button.action {
+        padding: 8px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; flex: 1; min-width: 60px;
+        background: #E5E8E8; transition: all 0.2s; box-shadow: 0 2px 5px rgba(0,0,0,0.1); color: #444; font-size: 13px;
+    }
+    button.action.active { background: var(--secondary); color: white; box-shadow: inset 0 2px 5px rgba(0,0,0,0.2); }
+    button.action:hover:not(.active) { background: #D5D8D8; }
+    
+    button.primary-btn { background: var(--accent); color: white; padding: 12px; border:none; border-radius: 10px; font-weight: bold; cursor:pointer; box-shadow: 0 4px 10px rgba(255, 0, 110, 0.3); transition: 0.2s; font-size: 15px; }
+    button.primary-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 15px rgba(255, 0, 110, 0.4); filter: brightness(1.1); }
+
+    .monitor-panel {
+        display: flex; flex-wrap: wrap; justify-content: space-between; gap:10px;
+        background: linear-gradient(135deg, #2B2D42, #1a1b29); color: white; padding: 15px 20px; border-radius: 12px; margin-top: 15px; font-size: 15px; font-weight: bold;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+    }
+    .monitor-panel span { color: #00F5D4; text-shadow: 0 0 5px rgba(0, 245, 212, 0.5); }
+
+    /* Modal 視窗共用樣式 */
+    .modal-overlay {
+        display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0,0,0,0.7); z-index: 100; justify-content: center; align-items: center; backdrop-filter: blur(8px);
+    }
+    .modal-content {
+        background: white; width: 92%; border-radius: 20px; padding: 30px;
+        max-height: 90vh; overflow-y: auto; box-sizing: border-box; box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+    }
+    .modal-content h2 { margin-top: 0; border-bottom: 2px solid var(--light); padding-bottom: 10px; color: var(--primary); }
+    
+    /* 知識卡片 */
+    #knowledge-modal .modal-content { max-width: 750px; border: 5px solid var(--secondary); background: linear-gradient(to bottom, #ffffff, #f0f8ff); }
+    .knowledge-title { text-align: center; color: var(--accent); font-size: 26px; margin-bottom: 15px; }
+    .knowledge-text { font-size: 16px; line-height: 1.6; color: #333; margin-bottom: 20px; text-align: justify; }
+    .knowledge-text strong { color: var(--accent); font-size: 18px; }
+    .diagram-container { display: flex; justify-content: center; gap: 20px; margin-bottom: 25px; }
+    .diagram-box { background: white; border-radius: 15px; padding: 15px; text-align: center; width: 100%; max-width: 450px; box-shadow: 0 8px 20px rgba(0,0,0,0.08); border: 1px solid #e0e0e0; }
+    .diagram-box canvas { background: #f8f9fa; border-radius: 10px; border: 1px solid #ddd; margin-top: 10px; width: 100%; }
+    .diagram-box h4 { margin: 0; color: var(--primary); font-size: 18px; }
+
+    /* 學習單卡片 */
+    #worksheet-modal .modal-content { max-width: 800px; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 15px; font-size: 14px; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
+    th { background: #f0f0f0; color: var(--dark); }
+    .quiz-section { background: #F8F9FA; padding: 15px; border-radius: 10px; margin-bottom: 15px; border-left: 5px solid var(--primary); }
+    .quiz-section h3 { margin: 0 0 15px 0; font-size: 18px; color: var(--dark); }
+    .question { margin-bottom: 15px; }
+    .question p { font-weight: bold; margin: 0 0 10px 0; font-size: 15px; }
+    .options label { display: block; padding: 10px; background: white; border: 1px solid #ddd; margin-bottom: 6px; border-radius: 6px; cursor: pointer; transition: 0.2s; }
+    .options label:hover { background: #EAEDED; }
+    #feedback-msg { font-weight: bold; font-size: 16px; margin: 15px 0; min-height: 24px; text-align: center;}
+</style>
+</head>
+<body>
+
+<div id="app">
+    <h1>🌈 3D光學物理探究：彩虹與色散光學台</h1>
+    
+    <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab('spray')" id="tab-spray">💧 實驗一：噴灑彩虹</button>
+        <button class="tab-btn" onclick="switchTab('prism')" id="tab-prism">📐 實驗二：光學台色散</button>
+    </div>
+
+    <!-- 畫布區 -->
+    <div id="canvas-container">
+        <canvas id="simCanvas"></canvas>
+        <div id="task-panel" class="overlay-panel">
+            <h3 id="task-title">🏆 探究任務</h3>
+            <div id="task1" class="task">⬜ 任務一</div>
+            <div id="task2" class="task">⬜ 任務二</div>
+            <div id="task3" class="task">⬜ 任務三</div>
+        </div>
+        <div class="overlay-panel" style="bottom:15px; left:50%; transform:translateX(-50%); text-align:center; background:rgba(0,0,0,0.6); color:white; border:none; border-radius:30px; padding:8px 20px;">
+            💡 提示：可以直接在畫布上「拖曳」太陽、人物、三稜鏡或投影幕！
+        </div>
+    </div>
+    
+    <!-- 控制面板 -->
+    <div class="controls-wrapper">
+        <!-- 實驗一：噴霧 -->
+        <div id="controls-spray" class="control-grid">
+            <div class="control-group">
+                <label>🌞 太陽位置</label>
+                <input type="range" id="sl-sun" min="80" max="800" value="700">
+            </div>
+            <div class="control-group">
+                <label>🧍 人物位置與面向</label>
+                <input type="range" id="sl-human" min="150" max="750" value="400">
+                <div class="btn-row">
+                    <button class="action active" id="btn-face-left" onclick="setHumanDir(-1)">👈 面左</button>
+                    <button class="action" id="btn-face-right" onclick="setHumanDir(1)">面右 👉</button>
+                </div>
+            </div>
+            <div class="control-group">
+                <label>💦 噴嘴模式</label>
+                <div class="btn-row">
+                    <button class="action" id="btn-jet" onclick="setSprayMode('jet')">模式 A (水柱)</button>
+                    <button class="action active" id="btn-mist" onclick="setSprayMode('mist')">模式 B (水霧)</button>
+                </div>
+            </div>
+            <div class="control-group">
+                <label>💧 噴水量</label>
+                <input type="range" id="sl-water-lvl" min="1" max="10" value="5">
+            </div>
+            <div class="control-group">
+                <label>▶️ 操作</label>
+                <button class="primary-btn" id="btn-toggle-spray" onclick="toggleSpray()">啟動噴水</button>
+            </div>
+        </div>
+
+        <!-- 實驗二：光學台 -->
+        <div id="controls-prism" class="control-grid" style="display:none;">
+            <div class="control-group" style="grid-column: span 2;">
+                <label>💡 光源類型 (關鍵變因)</label>
+                <div class="btn-row">
+                    <button class="action active" id="btn-light-off" onclick="setLightType('off')">關閉</button>
+                    <button class="action" id="btn-light-red" onclick="setLightType('red')">紅雷射</button>
+                    <button class="action" id="btn-light-green" onclick="setLightType('green')">綠雷射</button>
+                    <button class="action" id="btn-light-blue" onclick="setLightType('blue')">藍雷射</button>
+                    <button class="action" id="btn-light-white" onclick="setLightType('white')">混合白光</button>
+                </div>
+            </div>
+            <div class="control-group">
+                <label>📐 稜鏡旋轉角度</label>
+                <input type="range" id="sl-prism-angle" min="-45" max="45" value="0">
+            </div>
+            <div class="control-group">
+                <label>🔦 手電筒照射角度</label>
+                <input type="range" id="sl-light-angle" min="-30" max="30" value="0">
+            </div>
+            <div class="control-group">
+                <label>🖥️ 投影幕位置 (X/Y軸)</label>
+                <div style="display:flex; gap:5px;">
+                    <input type="range" id="sl-screen-x" min="500" max="950" value="800" title="移動左右">
+                    <input type="range" id="sl-screen-y" min="50" max="350" value="210" title="移動上下">
+                </div>
+            </div>
+        </div>
+
+        <!-- 全域功能按鈕：紀錄與學習單 -->
+        <div style="margin-top:15px; display:flex; gap:15px;">
+            <button class="primary-btn" style="background:#06D6A0; color:#111; flex:1;" onclick="recordData()">📊 記錄當下狀態至學習單</button>
+            <button class="primary-btn" style="background:#8338EC; flex:1;" onclick="openWorksheet()">📝 開啟探究學習單</button>
+        </div>
+    </div>
+
+    <!-- 數據面板 -->
+    <div class="monitor-panel">
+        <div>🔍 當前實驗: <span id="mon-exp">噴灑彩虹</span></div>
+        <div>📐 物理狀態: <span id="mon-condition">待命中</span></div>
+        <div>🌍 觀測現象: <span id="mon-result">無現象</span></div>
+    </div>
+</div>
+
+<!-- ================= 科學原理介紹 Modal (成就解鎖) ================= -->
+<div id="knowledge-modal" class="modal-overlay">
+    <div class="modal-content">
+        <h2 class="knowledge-title" id="k-title">🎉 恭喜你解開了光學的秘密！</h2>
+        <div class="knowledge-text" id="k-text">內容</div>
+        <div class="diagram-container" id="k-diagrams"></div>
+        <button class="primary-btn" style="width:100%; font-size:18px;" onclick="closeKnowledge()">💡 我明白了！繼續探索</button>
+    </div>
+</div>
+
+<!-- ================= 探究學習單與紀錄 Modal ================= -->
+<div id="worksheet-modal" class="modal-overlay">
+    <div class="modal-content">
+        <h2 style="text-align: center;">📝 探究學習單與實驗紀錄</h2>
+        
+        <h3>📊 你的實驗數據紀錄</h3>
+        <table id="data-table">
+            <tr><th>實驗類別</th><th>環境/變因狀態</th><th>觀察結果</th></tr>
+            <!-- 數據會動態產生在這裡 -->
+        </table>
+
+        <div class="quiz-section">
+            <h3>🔬 類別一：水霧彩虹實驗</h3>
+            <div class="question">
+                <p>1. 根據你的操作紀錄，要成功製造出人造彩虹，太陽、觀察者與水霧的相對位置應該為何？</p>
+                <div class="options">
+                    <label><input type="radio" name="q1" value="A"> (A) 太陽在觀察者前方，水霧在背後</label>
+                    <label><input type="radio" name="q1" value="B"> (B) 太陽在觀察者背後，水霧在前方</label>
+                </div>
+            </div>
+            <div class="question">
+                <p>2. 在噴水實驗中，為什麼選擇「模式B (水霧)」並且水量越大，彩虹就越明顯？</p>
+                <div class="options">
+                    <label><input type="radio" name="q2" value="A"> (A) 水量越大，水溫越高，彩虹才會發光</label>
+                    <label><input type="radio" name="q2" value="B"> (B) 越多細小的水滴能充當微小的三稜鏡，讓光線順利發生折射與反射</label>
+                </div>
+            </div>
+            <div class="question">
+                <p>3. 根據這個原理推論，在現實生活中，什麼天氣條件最容易看到彩虹？</p>
+                <div class="options">
+                    <label><input type="radio" name="q3" value="A"> (A) 中午出大太陽且完全沒雲的時候</label>
+                    <label><input type="radio" name="q3" value="B"> (B) 剛下過陣雨，空氣中充滿小水滴，且陽光從我們背後照過來時</label>
+                </div>
+            </div>
+        </div>
+
+        <div class="quiz-section">
+            <h3>📐 類別二：三稜鏡色散實驗</h3>
+            <div class="question">
+                <p>4. 在光學台中，哪一種光源通過三稜鏡後，會分散成七彩顏色的光譜？</p>
+                <div class="options">
+                    <label><input type="radio" name="q4" value="A"> (A) 混合白光</label>
+                    <label><input type="radio" name="q4" value="B"> (B) 單色紅雷射光</label>
+                </div>
+            </div>
+            <div class="question">
+                <p>5. 如果使用單色的「綠雷射」或「藍雷射」照射三稜鏡，會發生什麼事？</p>
+                <div class="options">
+                    <label><input type="radio" name="q5" value="A"> (A) 一樣會變成七彩的彩虹</label>
+                    <label><input type="radio" name="q5" value="B"> (B) 只會改變前進方向（折射），但依然是單一顏色</label>
+                </div>
+            </div>
+            <div class="question">
+                <p>6. 綜合以上，白光經過三稜鏡後被分開成多種顏色，這證明了什麼科學事實？</p>
+                <div class="options">
+                    <label><input type="radio" name="q6" value="A"> (A) 白光其實是由許多不同顏色的光混合而成的</label>
+                    <label><input type="radio" name="q6" value="B"> (B) 三稜鏡本身內部裝有七彩發光燈泡</label>
+                </div>
+            </div>
+        </div>
+
+        <div id="feedback-msg"></div>
+        <div style="display:flex; gap:10px;">
+            <button class="primary-btn" style="flex:2;" onclick="submitQuiz()">✅ 送出驗證答案</button>
+            <button class="primary-btn" style="background:#95A5A6; flex:1;" onclick="closeWorksheet()">❌ 關閉學習單</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ==========================================
+    // 狀態管理
+    // ==========================================
+    let state = {
+        tab: 'spray', dragTarget: null, cw: 900, ch: 420,
+        spray: {
+            sun: { x: 750, y: 80, r: 45 },
+            human: { x: 400, y: 320, dir: -1 },
+            sprayer: { x: 250, y: 300, r: 35 },
+            mode: 'mist', waterLvl: 5, isSpraying: false, rainbowAlpha: 0, particles: [],
+            hasShownInfo: false
+        },
+        prism: {
+            lightAngle: 0, prismAngle: 0, lightType: 'off', 
+            x: 400, y: 210, screenX: 800, screenY: 210, 
+            rainbowAlpha: 0, hasShownInfo: false
+        }
+    };
+    let tasks = { t1: false, t2: false, t3: false };
+
+    // ==========================================
+    // 初始化與事件
+    // ==========================================
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+
+    function resize() {
+        state.cw = document.getElementById('canvas-container').clientWidth;
+        state.ch = document.getElementById('canvas-container').clientHeight;
+        canvas.width = state.cw; canvas.height = state.ch;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    function updateTaskUI() {
+        if(state.tab === 'spray') {
+            document.getElementById('task-title').innerText = "🏆 噴霧探究任務";
+            document.getElementById('task1').innerHTML = `${tasks.t1 ? '✅' : '⬜'} 任務一：找出產生彩虹的相對位置`;
+            document.getElementById('task2').innerHTML = `${tasks.t2 ? '✅' : '⬜'} 任務二：找出最適合的噴水模式`;
+            document.getElementById('task3').innerHTML = `${tasks.t3 ? '✅' : '⬜'} 任務三：嘗試讓彩虹變得更明顯！`;
+        } else {
+            document.getElementById('task-title').innerText = "🏆 光學台挑戰";
+            document.getElementById('task1').innerHTML = `${tasks.t1 ? '✅' : '⬜'} 任務一：選擇能產生彩虹的「混合白光」`;
+            document.getElementById('task2').innerHTML = `${tasks.t2 ? '✅' : '⬜'} 任務二：讓光束精準打入三稜鏡發生折射`;
+            document.getElementById('task3').innerHTML = `${tasks.t3 ? '✅' : '⬜'} 任務三：移動投影幕，完美接住七彩光譜！`;
+        }
+    }
+
+    function switchTab(tab) {
+        state.tab = tab;
+        document.getElementById('tab-spray').classList.toggle('active', tab === 'spray');
+        document.getElementById('tab-prism').classList.toggle('active', tab === 'prism');
+        document.getElementById('controls-spray').style.display = tab === 'spray' ? 'grid' : 'none';
+        document.getElementById('controls-prism').style.display = tab === 'prism' ? 'grid' : 'none';
+        tasks = { t1: false, t2: false, t3: false };
+        updateTaskUI();
+    }
+    switchTab('spray');
+
+    // 控制面板連動
+    document.getElementById('sl-sun').addEventListener('input', e => { state.spray.sun.x = parseInt(e.target.value); });
+    document.getElementById('sl-human').addEventListener('input', e => { state.spray.human.x = parseInt(e.target.value); });
+    document.getElementById('sl-water-lvl').addEventListener('input', e => { state.spray.waterLvl = parseInt(e.target.value); });
+    document.getElementById('sl-light-angle').addEventListener('input', e => { state.prism.lightAngle = parseInt(e.target.value); });
+    document.getElementById('sl-prism-angle').addEventListener('input', e => { state.prism.prismAngle = parseInt(e.target.value); });
+    document.getElementById('sl-screen-x').addEventListener('input', e => { state.prism.screenX = parseInt(e.target.value); });
+    document.getElementById('sl-screen-y').addEventListener('input', e => { state.prism.screenY = parseInt(e.target.value); });
+
+    function setHumanDir(dir) {
+        state.spray.human.dir = dir;
+        document.getElementById('btn-face-left').classList.toggle('active', dir === -1);
+        document.getElementById('btn-face-right').classList.toggle('active', dir === 1);
+    }
+    function setSprayMode(mode) {
+        state.spray.mode = mode;
+        document.getElementById('btn-jet').classList.toggle('active', mode === 'jet');
+        document.getElementById('btn-mist').classList.toggle('active', mode === 'mist');
+    }
+    function toggleSpray() {
+        state.spray.isSpraying = !state.spray.isSpraying;
+        document.getElementById('btn-toggle-spray').innerText = state.spray.isSpraying ? '⏹️ 停止噴水' : '啟動噴水';
+        document.getElementById('btn-toggle-spray').style.background = state.spray.isSpraying ? '#E74C3C' : 'var(--accent)';
+    }
+    function setLightType(type) {
+        state.prism.lightType = type;
+        const types = ['off', 'red', 'green', 'blue', 'white'];
+        types.forEach(t => { document.getElementById('btn-light-' + t).classList.toggle('active', type === t); });
+    }
+
+    // 畫布物件拖曳
+    function getPointerPos(e) { const rect = canvas.getBoundingClientRect(); return { x: e.clientX - rect.left, y: e.clientY - rect.top }; }
+    canvas.addEventListener('pointerdown', (e) => {
+        const pos = getPointerPos(e);
+        if (state.tab === 'spray') {
+            const s = state.spray;
+            if (Math.hypot(pos.x - s.sun.x, pos.y - s.sun.y) < 60) state.dragTarget = 'sun';
+            else if (Math.hypot(pos.x - s.human.x, pos.y - s.human.y) < 70) state.dragTarget = 'human';
+            else if (Math.hypot(pos.x - s.sprayer.x, pos.y - s.sprayer.y) < 60) state.dragTarget = 'sprayer';
+        } else if (state.tab === 'prism') {
+            const p = state.prism;
+            if (Math.hypot(pos.x - p.x, pos.y - p.y) < 60) state.dragTarget = 'prism';
+            else if (pos.x > p.screenX - 20 && pos.x < p.screenX + 20 && pos.y > p.screenY - 60 && pos.y < p.screenY + 60) state.dragTarget = 'screen';
+        }
+        if (state.dragTarget) canvas.setPointerCapture(e.pointerId);
+    });
+    canvas.addEventListener('pointermove', (e) => {
+        if (!state.dragTarget) return;
+        const pos = getPointerPos(e);
+        if (state.dragTarget === 'sun') { state.spray.sun.x = pos.x; document.getElementById('sl-sun').value = pos.x; }
+        if (state.dragTarget === 'human') { state.spray.human.x = pos.x; document.getElementById('sl-human').value = pos.x; }
+        if (state.dragTarget === 'sprayer') { state.spray.sprayer.x = pos.x; state.spray.sprayer.y = pos.y; }
+        if (state.dragTarget === 'prism') { state.prism.x = pos.x; state.prism.y = pos.y; }
+        if (state.dragTarget === 'screen') { 
+            state.prism.screenX = pos.x; state.prism.screenY = pos.y;
+            document.getElementById('sl-screen-x').value = pos.x; document.getElementById('sl-screen-y').value = pos.y;
+        }
+    });
+    canvas.addEventListener('pointerup', (e) => { state.dragTarget = null; canvas.releasePointerCapture(e.pointerId); });
+
+    // ==========================================
+    // 渲染引擎
+    // ==========================================
+    function drawCylinder(ctx, x, y, w, h, colorLeft, colorMid, colorRight) {
+        let grad = ctx.createLinearGradient(x - w/2, 0, x + w/2, 0);
+        grad.addColorStop(0, colorLeft); grad.addColorStop(0.5, colorMid); grad.addColorStop(1, colorRight);
+        ctx.fillStyle = grad; ctx.fillRect(x - w/2, y, w, h);
+        ctx.beginPath(); ctx.ellipse(x, y + h, w/2, w/5, 0, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = colorMid; ctx.beginPath(); ctx.ellipse(x, y, w/2, w/5, 0, 0, Math.PI*2); ctx.fill();
+    }
+
+    class Particle {
+        constructor(x, y, mode, waterLvl) {
+            this.x = x; this.y = y; this.mode = mode;
+            let dir = state.spray.human.dir;
+            let speedMult = 1 + (waterLvl * 0.08); 
+            
+            if (mode === 'mist') {
+                this.vx = dir * (Math.random() * 4 + 3) * speedMult; 
+                this.vy = (Math.random() - 0.5) * 8; 
+                this.r = Math.random() * 2 + 0.5; 
+                this.alpha = 0.5; this.decay = 0.01; this.g = 0.005; 
+                this.color1 = 'rgba(255,255,255,'; this.color2 = 'rgba(220,230,240,';
+            } else {
+                this.vx = dir * (Math.random() * 2 + 7) * speedMult; 
+                this.vy = (Math.random() - 0.5) * 2 - 2; 
+                this.r = Math.random() * 3 + 4; 
+                this.alpha = 0.9; this.decay = 0.02; this.g = 0.45; 
+                this.color1 = 'rgba(80,180,255,'; this.color2 = 'rgba(20,100,200,';
+            }
+        }
+        update() { this.x += this.vx; this.y += this.vy; this.vy += this.g; this.alpha -= this.decay; }
+        draw(ctx) {
+            let a = Math.max(0, this.alpha);
+            let grad = ctx.createRadialGradient(this.x - this.r/3, this.y - this.r/3, 0, this.x, this.y, this.r);
+            grad.addColorStop(0, this.color1 + a + ')'); grad.addColorStop(1, this.color2 + (a*0.5) + ')');
+            ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI*2); ctx.fill();
+        }
+    }
+
+    function render() {
+        ctx.clearRect(0, 0, state.cw, state.ch);
+        if (state.tab === 'spray') renderSpray(); else renderPrism();
+        requestAnimationFrame(render);
+    }
+
+    // --- 實驗一：噴灑彩虹 ---
+    function renderSpray() {
+        const s = state.spray;
+        let sky = ctx.createLinearGradient(0,0,0,state.ch);
+        sky.addColorStop(0, '#1a2a6c'); sky.addColorStop(0.5, '#b21f1f'); sky.addColorStop(1, '#fdbb2d');
+        ctx.fillStyle = sky; ctx.fillRect(0, 0, state.cw, state.ch);
+        ctx.fillStyle = '#229954'; ctx.beginPath(); ctx.ellipse(state.cw/2, state.ch, state.cw*0.8, 80, 0, Math.PI, 0); ctx.fill();
+
+        ctx.shadowBlur = 40; ctx.shadowColor = '#F39C12';
+        let sunGrad = ctx.createRadialGradient(s.sun.x, s.sun.y, 0, s.sun.x, s.sun.y, s.sun.r);
+        sunGrad.addColorStop(0, '#FFFFFF'); sunGrad.addColorStop(0.3, '#F1C40F'); sunGrad.addColorStop(1, 'rgba(243,156,18,0)');
+        ctx.fillStyle = sunGrad; ctx.beginPath(); ctx.arc(s.sun.x, s.sun.y, s.sun.r*1.5, 0, Math.PI*2); ctx.fill();
+        ctx.shadowBlur = 0; 
+        
+        let beamGrad = ctx.createLinearGradient(s.sun.x, s.sun.y, state.cw/2, state.ch);
+        beamGrad.addColorStop(0, 'rgba(255,255,200,0.3)'); beamGrad.addColorStop(1, 'rgba(255,255,200,0)');
+        ctx.fillStyle = beamGrad; ctx.beginPath(); ctx.moveTo(s.sun.x, s.sun.y); ctx.lineTo(s.sun.x - 400, state.ch); ctx.lineTo(s.sun.x + 400, state.ch); ctx.fill();
+
+        ctx.fillStyle = 'rgba(0,0,0,0.4)'; ctx.beginPath(); ctx.ellipse(s.human.x, s.human.y + 60, 25, 8, 0, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(s.sprayer.x, s.sprayer.y + 35, 15, 5, 0, 0, Math.PI*2); ctx.fill();
+
+        ctx.save(); ctx.translate(s.human.x, s.human.y); ctx.scale(s.human.dir, 1);
+        drawCylinder(ctx, -10, 30, 10, 30, '#1c2833', '#2e4053', '#1c2833'); drawCylinder(ctx, 10, 30, 10, 30, '#1c2833', '#2e4053', '#1c2833');
+        drawCylinder(ctx, 0, -20, 36, 55, '#21618C', '#3498DB', '#1B4F72');
+        let headGrad = ctx.createRadialGradient(-5, -45, 2, 0, -40, 22);
+        headGrad.addColorStop(0, '#FAD7A1'); headGrad.addColorStop(0.8, '#E67E22'); headGrad.addColorStop(1, '#A04000');
+        ctx.fillStyle = headGrad; ctx.beginPath(); ctx.arc(0, -40, 22, 0, Math.PI*2); ctx.fill(); 
+        ctx.fillStyle = 'white'; ctx.beginPath(); ctx.ellipse(12, -45, 6, 8, 0, 0, Math.PI*2); ctx.fill(); 
+        ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(14, -45, 3, 0, Math.PI*2); ctx.fill(); 
+        ctx.fillStyle = '#BA4A00'; ctx.beginPath(); ctx.moveTo(18, -38); ctx.lineTo(26, -34); ctx.lineTo(18, -31); ctx.fill(); 
+        ctx.restore();
+
+        ctx.save(); ctx.translate(s.sprayer.x, s.sprayer.y);
+        drawCylinder(ctx, 0, 0, 20, 35, '#BDC3C7', '#ECF0F1', '#95A5A6'); drawCylinder(ctx, 0, -15, 24, 15, '#C0392B', '#E74C3C', '#922B21');
+        ctx.fillStyle = '#7F8C8D'; ctx.beginPath();
+        if(s.human.dir === 1) { ctx.moveTo(10, -10); ctx.lineTo(25, -13); ctx.lineTo(25, -7); } else { ctx.moveTo(-10, -10); ctx.lineTo(-25, -13); ctx.lineTo(-25, -7); }
+        ctx.fill(); ctx.restore();
+
+        if (s.isSpraying) { 
+            let particleCount = (s.mode === 'mist') ? Math.floor(s.waterLvl * 3) : Math.floor(s.waterLvl / 2) + 1; 
+            for(let i=0; i<particleCount; i++) s.particles.push(new Particle(s.sprayer.x + (s.human.dir*20), s.sprayer.y - 10, s.mode, s.waterLvl)); 
+        }
+        for (let i = s.particles.length - 1; i >= 0; i--) {
+            s.particles[i].update(); s.particles[i].draw(ctx);
+            if (s.particles[i].alpha <= 0 || s.particles[i].y > state.ch) s.particles.splice(i, 1);
+        }
+
+        let sunBehind = (s.human.dir === -1 && s.sun.x > s.human.x) || (s.human.dir === 1 && s.sun.x < s.human.x);
+        let sprayInFront = (s.human.dir === -1 && s.sprayer.x < s.human.x) || (s.human.dir === 1 && s.sprayer.x > s.human.x);
+        let hasRainbow = (sunBehind && sprayInFront && s.mode === 'mist' && s.isSpraying);
+        
+        if (hasRainbow) tasks.t1 = true;
+        if (hasRainbow && s.mode === 'mist') tasks.t2 = true;
+
+        if (hasRainbow) {
+            let targetAlpha = 0.2 + (s.waterLvl / 10) * 0.7; 
+            s.rainbowAlpha = Math.min(s.rainbowAlpha + 0.02, targetAlpha);
+            if (s.rainbowAlpha > 0.6) {
+                tasks.t3 = true;
+                if (!s.hasShownInfo) { s.hasShownInfo = true; setTimeout(() => openKnowledge('spray'), 1200); }
+            }
+        } else {
+            s.rainbowAlpha = Math.max(s.rainbowAlpha - 0.05, 0);
+        }
+
+        if (s.rainbowAlpha > 0) {
+            ctx.save(); ctx.globalAlpha = s.rainbowAlpha; ctx.filter = 'blur(6px)';
+            const colors = ['#E74C3C', '#E67E22', '#F1C40F', '#2ECC71', '#3498DB', '#8E44AD'];
+            ctx.lineCap = 'round'; let cx = s.sprayer.x + (s.human.dir * 140);
+            for (let i = 0; i < colors.length; i++) {
+                ctx.strokeStyle = colors[i]; ctx.lineWidth = 18 - (i*0.5); 
+                ctx.beginPath(); ctx.arc(cx, state.ch + 20, Math.max(10, 220 - i * 16), Math.PI, 0); ctx.stroke();
+            }
+            ctx.filter = 'none'; ctx.restore();
+        }
+
+        updateTaskUI();
+        document.getElementById('mon-exp').innerText = '噴灑實驗';
+        document.getElementById('mon-condition').innerText = `太陽位於${sunBehind ? '背後' : '前方'} / 噴灑於${sprayInFront ? '前方' : '背後'}`;
+        document.getElementById('mon-result').innerText = hasRainbow ? (s.waterLvl > 7 ? '🌈 產生高濃度彩虹' : '🌈 產生微弱彩虹') : '無現象';
+    }
+
+    // --- 實驗二：光學台色散 ---
+    function renderPrism() {
+        const p = state.prism;
+        let bg = ctx.createRadialGradient(state.cw/2, state.ch/2, 50, state.cw/2, state.ch/2, state.cw);
+        bg.addColorStop(0, '#2C3E50'); bg.addColorStop(1, '#050505');
+        ctx.fillStyle = bg; ctx.fillRect(0, 0, state.cw, state.ch); 
+        
+        let cy = state.ch / 2;
+
+        // 畫投影幕 (有特定高度範圍)
+        let screenHeight = 100;
+        let sTop = p.screenY - screenHeight/2;
+        let sBottom = p.screenY + screenHeight/2;
+        ctx.fillStyle = '#ECF0F1'; ctx.fillRect(p.screenX - 8, sTop, 16, screenHeight); 
+        ctx.fillStyle = '#7F8C8D'; ctx.fillRect(p.screenX - 3, sBottom, 6, state.ch - sBottom); 
+
+        let size = 60; let depth = 30;
+        let v_front = [ {x: 0, y: -size}, {x: size, y: size*0.7}, {x: -size, y: size*0.7} ];
+        let v_back = v_front.map(v => ({x: v.x + depth, y: v.y - depth}));
+
+        if (p.lightType !== 'off') {
+            if (p.lightType === 'white') tasks.t1 = true;
+
+            let rayAngleRad = p.lightAngle * Math.PI / 180;
+            let rayYAtPrism = cy + Math.tan(rayAngleRad) * (p.x - 50);
+            let hitPrismBody = Math.abs(rayYAtPrism - p.y) < size; 
+            
+            let angleDiff = Math.abs(p.lightAngle - p.prismAngle);
+            let goodAngle = angleDiff < 35 && angleDiff > 5; 
+            let hitAndDisperse = hitPrismBody && goodAngle;
+
+            ctx.save(); ctx.translate(50, cy); ctx.rotate(rayAngleRad);
+            let beamLen = hitPrismBody ? ((p.x - 50) / Math.cos(rayAngleRad)) : 1200;
+            
+            let lightColor = 'rgba(255,255,255,0.85)';
+            if(p.lightType === 'red') lightColor = 'rgba(231,76,60,0.85)';
+            else if(p.lightType === 'green') lightColor = 'rgba(46,204,113,0.85)';
+            else if(p.lightType === 'blue') lightColor = 'rgba(52,152,219,0.85)';
+
+            ctx.shadowBlur = 15; ctx.fillStyle = lightColor; ctx.shadowColor = lightColor;
+            ctx.beginPath(); ctx.moveTo(20, -5); ctx.lineTo(beamLen, -5); ctx.lineTo(beamLen, 5); ctx.lineTo(20, 5); ctx.fill();
+            ctx.shadowBlur = 0; ctx.restore();
+
+            if (hitPrismBody && p.lightType === 'white') tasks.t2 = true;
+
+            if (hitAndDisperse) {
+                p.rainbowAlpha = Math.min(p.rainbowAlpha + 0.05, 0.95);
+                
+                ctx.save(); ctx.translate(p.x, p.y); ctx.globalAlpha = p.rainbowAlpha;
+                let outAngle = rayAngleRad + (rayAngleRad - p.prismAngle * Math.PI/180) * 0.6; 
+                let distToScreen = p.screenX - p.x;
+
+                if (distToScreen > 0) {
+                    if (p.lightType === 'white') {
+                        const colors = ['#E74C3C', '#E67E22', '#F1C40F', '#2ECC71', '#3498DB', '#9B59B6'];
+                        let spreadRad = 0.25; 
+                        ctx.filter = 'blur(2px)';
+                        
+                        let highestY = Infinity; let lowestY = -Infinity;
+
+                        for (let i = 0; i < colors.length; i++) {
+                            ctx.fillStyle = colors[i];
+                            let cAngle = outAngle - spreadRad/2 + (i * spreadRad/colors.length);
+                            let rayHitY = Math.tan(cAngle) * distToScreen;
+                            
+                            let nextAngle = outAngle - spreadRad/2 + ((i+1) * spreadRad/colors.length);
+                            let nextHitY = Math.tan(nextAngle) * distToScreen;
+                            
+                            ctx.beginPath(); ctx.moveTo(20*Math.cos(outAngle), 20*Math.sin(outAngle));
+                            ctx.lineTo(distToScreen, rayHitY); ctx.lineTo(distToScreen, nextHitY); ctx.fill();
+                            ctx.beginPath(); ctx.arc(distToScreen, rayHitY + (nextHitY-rayHitY)/2, 8, 0, Math.PI*2); ctx.fill(); 
+
+                            let absoluteHitY = p.y + rayHitY;
+                            highestY = Math.min(highestY, absoluteHitY);
+                            lowestY = Math.max(lowestY, nextHitY + p.y);
+                        }
+                        ctx.filter = 'none';
+
+                        // 判斷投影幕是否成功接住整個光譜 (上下都在幕布範圍內)
+                        if (highestY >= sTop && lowestY <= sBottom) {
+                            tasks.t3 = true;
+                            if (!p.hasShownInfo) { p.hasShownInfo = true; setTimeout(() => openKnowledge('prism'), 1500); }
+                        }
+                    } else {
+                        // 單色雷射光
+                        ctx.fillStyle = lightColor;
+                        let rayHitY = Math.tan(outAngle) * distToScreen;
+                        ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(distToScreen, rayHitY - 5); ctx.lineTo(distToScreen, rayHitY + 5); ctx.fill();
+                        ctx.beginPath(); ctx.arc(distToScreen, rayHitY, 10, 0, Math.PI*2); ctx.fill();
+                    }
+                } else {
+                    ctx.rotate(outAngle);
+                    ctx.fillStyle = lightColor;
+                    if(p.lightType === 'white') { ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(1000, -100); ctx.lineTo(1000, 100); ctx.fill(); } 
+                    else { ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(1000, -5); ctx.lineTo(1000, 5); ctx.fill(); }
+                }
+                ctx.restore();
+            } else { p.rainbowAlpha = 0; }
+
+            let condText = hitAndDisperse ? '光線發生折射' : (hitPrismBody ? '光線遭稜鏡全反射' : '光束未進入稜鏡');
+            document.getElementById('mon-condition').innerText = condText;
+            
+            let resText = '白光直接穿越';
+            if (hitAndDisperse) {
+                if (p.lightType !== 'white') resText = '🔴 單色光僅折射(無色散)';
+                else resText = (tasks.t3) ? '🌈 屏幕成功捕捉色散光譜' : '🌈 產生色散 (屏幕未接住)';
+            } else if (hitPrismBody) resText = '光線被阻擋';
+            document.getElementById('mon-result').innerText = resText;
+
+        } else {
+            document.getElementById('mon-condition').innerText = '光源關閉';
+            document.getElementById('mon-result').innerText = '無現象';
+        }
+
+        // 繪製 3D 三稜鏡
+        ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.prismAngle * Math.PI / 180);
+        ctx.lineJoin = 'round';
+        ctx.fillStyle = 'rgba(100, 200, 255, 0.3)'; ctx.strokeStyle = 'rgba(200, 240, 255, 0.8)'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(v_back[0].x, v_back[0].y); ctx.lineTo(v_back[1].x, v_back[1].y); ctx.lineTo(v_back[2].x, v_back[2].y); ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(v_front[0].x, v_front[0].y); ctx.lineTo(v_back[0].x, v_back[0].y); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(v_front[1].x, v_front[1].y); ctx.lineTo(v_back[1].x, v_back[1].y); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(v_front[2].x, v_front[2].y); ctx.lineTo(v_back[2].x, v_back[2].y); ctx.stroke();
+        let prismGrad = ctx.createLinearGradient(v_front[0].x, v_front[0].y, v_front[1].x, v_front[1].y);
+        prismGrad.addColorStop(0, 'rgba(255, 255, 255, 0.5)'); prismGrad.addColorStop(1, 'rgba(100, 200, 255, 0.2)');
+        ctx.fillStyle = prismGrad;
+        ctx.beginPath(); ctx.moveTo(v_front[0].x, v_front[0].y); ctx.lineTo(v_front[1].x, v_front[1].y); ctx.lineTo(v_front[2].x, v_front[2].y); ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.restore();
+
+        // 繪製手電筒
+        ctx.save(); ctx.translate(80, cy); ctx.rotate(p.lightAngle * Math.PI / 180);
+        drawCylinder(ctx, -10, -15, 50, 30, '#424949', '#7F8C8D', '#424949'); 
+        drawCylinder(ctx, 20, -18, 15, 36, '#D4AC0D', '#F1C40F', '#D4AC0D'); 
+        if(p.lightType !== 'off') { 
+            let headC = 'white'; if(p.lightType==='red') headC='red'; else if(p.lightType==='green') headC='#2ECC71'; else if(p.lightType==='blue') headC='#3498DB';
+            ctx.fillStyle = headC; ctx.shadowBlur=20; ctx.shadowColor=headC; 
+            ctx.beginPath(); ctx.ellipse(28, 0, 4, 15, 0, 0, Math.PI*2); ctx.fill(); 
+        }
+        ctx.restore();
+        
+        updateTaskUI();
+        document.getElementById('mon-exp').innerText = '光學台色散';
+    }
+
+    // ==========================================
+    // 知識解說 與 學習單邏輯
+    // ==========================================
+    function drawDropDiagram() {
+        const dCtx = document.getElementById('canvas-drop').getContext('2d'); dCtx.clearRect(0,0,300,200);
+        let dGrad = dCtx.createRadialGradient(130, 80, 10, 150, 100, 70); dGrad.addColorStop(0, '#FFFFFF'); dGrad.addColorStop(1, '#B3E5FC');
+        dCtx.fillStyle = dGrad; dCtx.beginPath(); dCtx.arc(150, 100, 70, 0, Math.PI*2); dCtx.fill(); dCtx.stroke();
+        
+        const arrow = (x1, y1, x2, y2, c) => {
+            dCtx.strokeStyle = c; dCtx.fillStyle = c; dCtx.lineWidth = 3; let angle = Math.atan2(y2 - y1, x2 - x1);
+            dCtx.beginPath(); dCtx.moveTo(x1, y1); dCtx.lineTo(x2, y2); dCtx.stroke();
+            dCtx.beginPath(); dCtx.moveTo(x2, y2); dCtx.lineTo(x2 - 10 * Math.cos(angle - Math.PI/6), y2 - 10 * Math.sin(angle - Math.PI/6)); dCtx.lineTo(x2 - 10 * Math.cos(angle + Math.PI/6), y2 - 10 * Math.sin(angle + Math.PI/6)); dCtx.fill();
+        };
+        arrow(10, 40, 95, 60, '#F1C40F'); arrow(95, 60, 210, 80, '#E74C3C'); arrow(95, 60, 200, 120, '#9B59B6'); 
+        arrow(210, 80, 130, 165, '#E74C3C'); arrow(200, 120, 100, 150, '#9B59B6'); 
+        arrow(130, 165, 40, 190, '#E74C3C'); arrow(100, 150, 20, 160, '#9B59B6'); 
+        dCtx.fillStyle = '#333'; dCtx.font = 'bold 15px sans-serif'; dCtx.fillText('陽光', 15, 30); dCtx.fillText('折射', 95, 45); dCtx.fillText('反射', 220, 105); dCtx.fillText('折射出色散', 20, 135);
+    }
+
+    function drawPrismDiagram() {
+        const pCtx = document.getElementById('canvas-prism').getContext('2d'); pCtx.clearRect(0,0,300,200);
+        pCtx.fillStyle = 'rgba(224, 247, 250, 0.8)'; pCtx.strokeStyle = '#00BCD4'; pCtx.lineWidth = 3;
+        pCtx.beginPath(); pCtx.moveTo(150, 30); pCtx.lineTo(230, 170); pCtx.lineTo(70, 170); pCtx.closePath(); pCtx.fill(); pCtx.stroke();
+        
+        const arrow = (x1, y1, x2, y2, c, w=3) => {
+            pCtx.strokeStyle = c; pCtx.fillStyle = c; pCtx.lineWidth = w; let angle = Math.atan2(y2 - y1, x2 - x1);
+            pCtx.beginPath(); pCtx.moveTo(x1, y1); pCtx.lineTo(x2, y2); pCtx.stroke();
+            pCtx.beginPath(); pCtx.moveTo(x2, y2); pCtx.lineTo(x2 - 10 * Math.cos(angle - Math.PI/6), y2 - 10 * Math.sin(angle - Math.PI/6)); pCtx.lineTo(x2 - 10 * Math.cos(angle + Math.PI/6), y2 - 10 * Math.sin(angle + Math.PI/6)); pCtx.fill();
+        };
+        arrow(10, 120, 110, 120, '#F1C40F', 5); 
+        arrow(110, 120, 165, 110, '#E74C3C'); arrow(110, 120, 180, 135, '#9B59B6'); 
+        arrow(165, 110, 280, 80, '#E74C3C', 4); arrow(180, 135, 290, 160, '#9B59B6', 4); 
+        pCtx.fillStyle = '#333'; pCtx.font = 'bold 15px sans-serif'; pCtx.fillText('混合白光', 30, 110); pCtx.fillText('空間展開', 190, 70);
+    }
+
+    function openKnowledge(type) { 
+        document.getElementById('knowledge-modal').style.display = 'flex'; 
+        if (type === 'spray') {
+            document.getElementById('k-title').innerText = '🎉 恭喜你製造出水霧彩虹！';
+            document.getElementById('k-text').innerHTML = `原來美麗的彩虹，是因為光線在<strong>「微小水滴」</strong>中發生了空間轉換！<br>當陽光（白光）進入水滴時，會發生<strong>「折射」</strong>與內部<strong>「反射」</strong>。不同顏色的光彎曲幅度不同，光線就被展開了，這就是<strong>「色散現象」</strong>！`;
+            document.getElementById('k-diagrams').innerHTML = `<div class="diagram-box"><h4>💧 水滴中的折射與反射</h4><canvas id="canvas-drop" width="300" height="200"></canvas></div>`;
+            drawDropDiagram();
+        } else {
+            document.getElementById('k-title').innerText = '🎉 恭喜你解開了白光色散的秘密！';
+            document.getElementById('k-text').innerHTML = `你發現了嗎？單色光（如紅、綠、藍雷射）經過三稜鏡時<strong>只會改變方向（折射），但不會變色</strong>。<br>只有<strong>「混合白光」</strong>經過三稜鏡時，因為包含了各種顏色的光，而<strong>不同顏色的光折射率（彎曲程度）不同</strong>（紅光彎曲最少，紫光彎曲最多），因此被散開成七彩光譜，這就是著名的<strong>「白光色散實驗」</strong>！`;
+            document.getElementById('k-diagrams').innerHTML = `<div class="diagram-box"><h4>📐 三稜鏡白光色散</h4><canvas id="canvas-prism" width="300" height="200"></canvas></div>`;
+            drawPrismDiagram();
+        }
+    }
+    function closeKnowledge() { document.getElementById('knowledge-modal').style.display = 'none'; }
+
+    // ====== 紀錄與學習單邏輯 ======
+    function recordData() {
+        const table = document.getElementById('data-table');
+        const row = table.insertRow(-1);
+        if (state.tab === 'spray') {
+            let sBehind = ((state.spray.human.dir === -1 && state.spray.sun.x > state.spray.human.x) || (state.spray.human.dir === 1 && state.spray.sun.x < state.spray.human.x));
+            let sMode = state.spray.mode === 'mist' ? '模式 B(水霧)' : '模式 A(水柱)';
+            row.innerHTML = `<td>💧 噴灑實驗</td><td>${sBehind ? '背對太陽' : '面向太陽'} + ${sMode}</td><td style="color:${state.spray.rainbowAlpha>0?'#27AE60':'#E74C3C'}; font-weight:bold;">${state.spray.rainbowAlpha>0?'✅ 產生彩虹':'❌ 無現象'}</td>`;
+        } else {
+            let cy = state.ch / 2;
+            let rayAngleRad = state.prism.lightAngle * Math.PI / 180;
+            let rayYAtPrism = cy + Math.tan(rayAngleRad) * (state.prism.x - 50);
+            let hitPrismBody = Math.abs(rayYAtPrism - state.prism.y) < 60;
+            
+            let lightName = '關閉';
+            if(state.prism.lightType==='white') lightName='混合白光';
+            else if(state.prism.lightType==='red') lightName='紅雷射';
+            else if(state.prism.lightType==='green') lightName='綠雷射';
+            else if(state.prism.lightType==='blue') lightName='藍雷射';
+
+            let targetText = hitPrismBody ? '擊中稜鏡' : '未擊中';
+            let hasDispersion = (hitPrismBody && state.prism.lightType === 'white' && Math.abs(state.prism.lightAngle - state.prism.prismAngle) < 35);
+
+            row.innerHTML = `<td>📐 光學台</td><td>光源:${lightName} / ${targetText}</td><td style="color:${hasDispersion?'#27AE60':'#E74C3C'}; font-weight:bold;">${hasDispersion?'✅ 產生色散':'❌ 無色散'}</td>`;
+        }
+        alert("📊 當下狀態已記錄至學習單！請點擊「開啟探究學習單」查看。");
+    }
+
+    function openWorksheet() { document.getElementById('worksheet-modal').style.display = 'flex'; }
+    function closeWorksheet() { document.getElementById('worksheet-modal').style.display = 'none'; }
+    
+    function submitQuiz() {
+        const q1 = document.querySelector('input[name="q1"]:checked');
+        const q2 = document.querySelector('input[name="q2"]:checked');
+        const q3 = document.querySelector('input[name="q3"]:checked');
+        const q4 = document.querySelector('input[name="q4"]:checked');
+        const q5 = document.querySelector('input[name="q5"]:checked');
+        const q6 = document.querySelector('input[name="q6"]:checked');
+        
+        const msg = document.getElementById('feedback-msg');
+        
+        if (!q1 || !q2 || !q3 || !q4 || !q5 || !q6) { 
+            msg.style.color = 'var(--danger)'; msg.innerText = '⚠️ 請先將 6 題全部回答完畢再送出喔！'; return; 
+        }
+        
+        let score = 0;
+        if (q1.value === 'B') score++; if (q2.value === 'B') score++; if (q3.value === 'B') score++;
+        if (q4.value === 'A') score++; if (q5.value === 'B') score++; if (q6.value === 'A') score++;
+        
+        if (score === 6) {
+            msg.style.color = '#06D6A0'; msg.innerHTML = '🎉 恭喜你 6 題全對！完全掌握了光學原理！';
+        } else {
+            msg.style.color = '#E67E22'; msg.innerText = `💪 答對了 ${score}/6 題。參考紀錄數據與原理圖，再挑戰一次！`;
+        }
+    }
+
+    // 啟動
+    render();
+</script>
+</body>
+</html>
